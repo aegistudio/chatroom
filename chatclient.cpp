@@ -127,8 +127,8 @@ int main(int argc, char** argv) {
 		if(nPollReady < 0) break;
 		
 		// Check whether client socket is ready.
-		if(clientSocketPoll.revents == POLLIN) {
-			clientSocketPoll.revents = 0;
+		if(clientSocketPoll.revents & POLLIN) {
+			clientSocketPoll.revents ^= POLLIN;
 			
 			// Retrieve the packetId.
 			int packetId = 0;
@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
 				case 0:	{ // Line.
 					std::string line;
 					if(socket.read(line) < 0) running = false;
-					std::cout << line << format() << std::endl;
+					else std::cout << line << format() << std::endl;
 				} break;
 				default:
 					running = false;
@@ -147,11 +147,13 @@ int main(int argc, char** argv) {
 			}
 		}
 		
-		// Check whether stdin socket is ready.
-		if(stdinPoll.revents == POLLIN) {
-			stdinPoll.revents = 0;
-			CsDtWriteBuffer packet;
+		// Check whether stdin is ready.
+		if(stdinPoll.revents & POLLIN) {
+			stdinPoll.revents ^= POLLIN;
+			if(feof(stdin)) break;
 			
+			CsDtWriteBuffer packet;
+
 			// Read a line from the stdin.
 			std::string command;
 			std::getline(std::cin, command);
@@ -181,4 +183,5 @@ int main(int argc, char** argv) {
 	
 	// Clean up the resource.
 	close(clientSocket);
+	return 0;
 }

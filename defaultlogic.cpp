@@ -1,6 +1,7 @@
 #include "chatlogic.hpp"
 #include "util.hpp"
 #include <vector>
+#include <map>
 #include <sstream>
 #include <arpa/inet.h>
 
@@ -44,44 +45,48 @@ public:
 				fmtMagenta << clientName << fmtPurple << " (" << 
 				server -> ipPort() << ")" << format() << 
 				fmtYellow << " has left the chat.";
-			broadcastOther(leaveMessage.str());
+			broadcastOtherAndLog(leaveMessage.str());
 		}
 	}
-		
-	void broadcastOther(const std::string& message) {
-		// Attempt to broadcast the message to other users.
+
+	// Attempt to broadcast the message to other users.
+	void broadcastOtherAndLog(const std::string& message) {
 		std::set<std::string> ignoreSet;
 		ignoreSet.insert(clientName);
 		server -> log(message);
 		server -> broadcast(message, ignoreSet);
 	}
-	
+
+	// Retrieve next data to read.
 	virtual void next(size_t& size, void*& buffer) override {
 		switch(status) {
+			// The packet size state.
 			case stPacketSize:
 			case stNameSize: 
 				size = sizeof(dataSize); 
 				buffer = &dataSize;
 			break;
 				
+			// The packet data state.
 			case stPacketData:
 			case stNameBuffer: 
 				size = dataSize;
 				buffer = dataBuffer.data();
 			break;
 
+			// Invalid state.
 			default: 
 				size = 0;
 				buffer = NULL;
 			break;
 		}
 	}
-	
+
+	// Process the packet which has already been read.
 	virtual int processPacket(size_t size, void* buffer) {
 		CsDtReadBuffer packet(size, buffer);
 		int packetId = 0;
 		if(packet.read(packetId) < 0) return -1;
-
 		switch(packetId) {
 			case 0:	{ // Client send chat.
 				// Parse the chat packet.
@@ -120,12 +125,56 @@ public:
 		
 		return 0;
 	}
-	
+
+	// Execute the command by provided arguments.
 	virtual void processCommand(const std::vector<std::string>& args) {
-		server -> send(fmtRed + "Unknown command " + fmtBrightRed + "/" + args[0] + fmtRed 
-			+ ". Issue " + fmtBrightRed + "/help" + fmtRed + " for the list of commands.");
+		if(args[0] == "online") {
+			// List the users online.
+			std::set<std::string> users = server -> listOnlineUsers();
+			
+			// Construct the online user message.
+			std::stringstream onlineUserMessage;
+			onlineUserMessage << fmtYellow << "There " << 
+				((users.size() > 1)? "are" : "is") 
+				<< " "<< users.size() << " user";
+			if(users.size() > 1) onlineUserMessage << "s";
+			onlineUserMessage << " online: ";
+			bool firstUser = true;
+			for(auto& user : users) {
+				// Output the separator.
+				if(firstUser) firstUser = false;
+				else onlineUserMessage << fmtYellow << ", ";
+				
+				// Output the user name.
+				onlineUserMessage << fmtMagenta << user;
+			}
+			onlineUserMessage << fmtYellow << ".";
+			
+			// Send back the online message.
+			server -> send(onlineUserMessage.str());
+		} else if(args[0] == "help") {
+			// Construct the help list.
+			std::map<std::string, std::string> helpList;
+			helpList["online"] = "list online users in this chatroom.";
+			helpList["help"]   = "show available commands.";
+			
+			// List available commands.
+			std::stringstream commandMessage;
+			commandMessage << fmtYellow << "List of available commands: ";
+			for(auto& helpEntry : helpList) {
+				commandMessage << std::endl << fmtYellow << "/" << 
+					helpEntry.first << format() << ": " << helpEntry.second;
+			}
+				
+			// Send the help message back.
+			server -> send(commandMessage.str());
+		} else {
+			// Send the command not found message.
+			server -> send(fmtRed + "Unknown command " + fmtBrightRed + "/" + args[0] + fmtRed 
+				+ ". Issue " + fmtBrightRed + "/help" + fmtRed + " for the list of commands.");
+		}
 	}
-	
+
 	/// Tells the user that the current has finished filling.
 	virtual void bufferFilled() override {
 		switch(status) {
@@ -173,12 +222,11 @@ public:
 						fmtYellow << " has joined the chat room.";
 					
 					// Attempt to broadcast the message to other users.
-					broadcastOther(joinMessage.str());
+					broadcastOtherAndLog(joinMessage.str());
 					
 					// Update client status.
 					status = stPacketSize;
-				}
-				else {
+				} else {
 					// Tells the user that it cannot join the server because of
 					// the duplicated name.
 					server -> send(fmtRed + "Sorry but " + fmtMagenta
@@ -194,7 +242,7 @@ public:
 		}
 	}
 };
-	
+
 CsDtClientHandler* CsDtClientHandler::newClientHandler(CsDtClientService* svc) {
 	return new CsDtDefaultHandler(svc);
 }

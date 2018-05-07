@@ -59,12 +59,12 @@ int CsDtInputStream::read(std::string& result, size_t maxLength) {
 
 // Implementation for reading the file stream.
 int CsDtFileStream::read0(void* buffer, size_t size) {
-	return ::read(fd, buffer, size);
+	return ::read(fd, buffer, size) <= 0? -1 : 0;
 }
 
 // Implementation for writing the file stream.
 int CsDtFileStream::write0(const void* buffer, size_t size) {
-	return ::write(fd, buffer, size);
+	return ::write(fd, buffer, size) <= 0? -1 : 0;
 }
 
 // Implementaion for flushing the file stream.
@@ -90,30 +90,6 @@ int CsDtWriteBuffer::write0(const void* paramBuffer, size_t paramSize) {
 	int bufferSize = buffer.size();
 	buffer.resize(bufferSize + paramSize);
 	memcpy(&(buffer[bufferSize]), paramBuffer, paramSize);
-	return 0;
-}
-
-// Implementation for read integer from buffer.
-int readInt(size_t* size, void** buffer, int& target) {
-	if(*size < sizeof(int)) return -1;
-	int* intBuffer = (int*)(*buffer);
-	*buffer = (void*)(intBuffer + 1);
-	target = *intBuffer;
-	return 0;
-}
-
-// Implementation for read string from buffer.
-int readString(size_t* size, void** buffer, std::string& target) {
-	// Retrieve length.
-	int length;
-	if(readInt(size, buffer, length) < 0) return -1;
-	
-	// Retrieve string.
-	std::vector<char> stringBuffer(length + 1);
-	stringBuffer[length] = '\0';
-	memcpy(stringBuffer.data(), *buffer, length);
-	*buffer = &(((char*)buffer)[length]);
-	target = std::string(stringBuffer.data());
 	return 0;
 }
 

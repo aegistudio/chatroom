@@ -419,6 +419,7 @@ int main(int argc, char** argv) {
 				else if(childPid == 0) {              // Body of child process.
 					// Close useless file descriptors and clear the map.
 					close(pipeReadEnd.fd);
+					//close(ccb.respondPipe[1]);
 					for(auto& clientHandler : clientHandlers) close(clientHandler.first);
 					clientHandlers = {};
 					
@@ -446,6 +447,7 @@ int main(int argc, char** argv) {
 				}
 				else {                                // Body of parent process.
 					ccb.pid = childPid;
+					//close(ccb.respondPipe[0]);
 					clientHandlers[clientSocket] = {};
 					clientHandlers[clientSocket].move(std::move(ccb));
 				}
