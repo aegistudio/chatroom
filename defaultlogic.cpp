@@ -183,7 +183,8 @@ public:
 				if(dataSize >= 64) status = stTerminated;
 				else {
 					status = stNameBuffer;
-					dataBuffer.resize(dataSize);
+					dataBuffer.resize(dataSize + 1);
+					dataBuffer[dataSize] = 0;
 				}
 			break;
 			

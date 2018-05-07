@@ -202,8 +202,9 @@ int main(int argc, char** argv) {
 			// See whether to process the command.
 			size_t lineBreakPos = std::string::npos;
 			while((lineBreakPos = command.find('\n')) != std::string::npos) {
-				if(!processCommandLine(socket, command.substr(0, lineBreakPos))) {
-					running = false; break;
+				if(lineBreakPos > 0) {
+					bool processStatus = processCommandLine(socket, command.substr(0, lineBreakPos));
+					if(!processStatus) { running = false; break; }
 				}
 				command = command.substr(lineBreakPos + 1, 
 					command.length() - lineBreakPos - 1);
