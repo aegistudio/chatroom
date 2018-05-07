@@ -45,6 +45,33 @@ void exitPosix(const char* message, int exitCode) {
 	exit(exitCode);
 }
 
+// Process a command line input from the user. Return whether there's write error.
+bool processCommandLine(CsDtFileStream& socket, std::string command) {
+	CsDtWriteBuffer packet;
+
+	// Single '/' will be treated as command.
+	int packetId = 0;
+	if(command[0] == '/') {
+		command = command.substr(1, command.length() - 1);
+		packetId = 1;
+		
+		// Double '//' will be treated as normal chat, and the 
+		// first slash will be ignored.
+		if(command.length() > 0 && command[0] == '/') 
+			packetId = 0;
+	}
+	
+	// Send only when there's command to send.
+	packet.write(packetId);
+	packet.write(command);
+	
+	// Write out the packet.
+	if(socket.write(packet.size()) < 0) return false;
+	if(packet.writeTo(socket) < 0) return false;
+
+	return true;
+}
+
 /// Used to parse the argument of the chat server program.
 const char* errorArgument[] = { "server ip", "server port", "client name" };
 const int errorExitCode[] = { eNoServerAddr, eNoServerPort, eNoClientName };
@@ -104,6 +131,10 @@ int main(int argc, char** argv) {
 	if(connect(clientSocket, (struct sockaddr*)&serverAddress, sockAddrSize) < 0)
 		exitPosix("Cannot connect to specified server address!\n", eClientSocketConnect);
 	
+	// Make the input stream non-blocking, and hold the command buffer.
+	fcntl(fileno(stdin), F_SETFL, O_NONBLOCK);
+	std::string command;
+
 	// Construct the file stream to simplify the writing.
 	CsDtFileStream socket(clientSocket);
 	
@@ -150,34 +181,36 @@ int main(int argc, char** argv) {
 		// Check whether stdin is ready.
 		if(stdinPoll.revents & POLLIN) {
 			stdinPoll.revents ^= POLLIN;
-			if(feof(stdin)) break;
-			
-			CsDtWriteBuffer packet;
 
-			// Read a line from the stdin.
-			std::string command;
-			std::getline(std::cin, command);
-			if(command.length() == 0) continue;
-			
-			// Single '/' will be treated as command.
-			int packetId = 0;
-			if(command[0] == '/') {
-				command = command.substr(1, command.length() - 1);
-				packetId = 1;
-				
-				// Double '//' will be treated as normal chat, and the 
-				// first slash will be ignored.
-				if(command.length() > 0 && command[0] == '/') 
-					packetId = 0;
+			// Loop reading command from the command line.
+			char commandBuffer[BUFSIZ + 1];
+			while(true) {
+				ssize_t readSize = read(fileno(stdin), commandBuffer, BUFSIZ);
+				if(readSize > 0) {
+					commandBuffer[readSize] = 0;
+					command += commandBuffer;
+				}
+				else {
+					if(readSize == 0) running = false;	// End of stream.
+					else if(readSize < 0) {			// See what kind of error.
+						if(errno != EWOULDBLOCK) running = false;
+					}
+					break;					// Break the reading loop.
+				}
 			}
-			
-			// Send only when there's command to send.
-			packet.write(packetId);
-			packet.write(command);
-			
-			// Write out the packet.
-			if(socket.write(packet.size()) < 0) running = false;
-			if(packet.writeTo(socket) < 0) running = false;
+
+			// See whether to process the command.
+			if(running) {
+				size_t lineBreakPos = std::string::npos;
+				while((lineBreakPos = command.find('\n')) != std::string::npos) {
+					if(!processCommandLine(socket, command.substr(0, lineBreakPos))) {
+						running = false; break;
+					}
+					command = command.substr(lineBreakPos + 1, 
+						command.length() - lineBreakPos - 1);
+				}
+			}
+			else if(command.length() > 0) processCommandLine(socket, command);
 		}
 	}
 	
