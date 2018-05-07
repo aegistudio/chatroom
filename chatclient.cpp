@@ -200,17 +200,17 @@ int main(int argc, char** argv) {
 			}
 
 			// See whether to process the command.
-			if(running) {
-				size_t lineBreakPos = std::string::npos;
-				while((lineBreakPos = command.find('\n')) != std::string::npos) {
-					if(!processCommandLine(socket, command.substr(0, lineBreakPos))) {
-						running = false; break;
-					}
-					command = command.substr(lineBreakPos + 1, 
-						command.length() - lineBreakPos - 1);
+			size_t lineBreakPos = std::string::npos;
+			while((lineBreakPos = command.find('\n')) != std::string::npos) {
+				if(!processCommandLine(socket, command.substr(0, lineBreakPos))) {
+					running = false; break;
 				}
+				command = command.substr(lineBreakPos + 1, 
+					command.length() - lineBreakPos - 1);
 			}
-			else if(command.length() > 0) processCommandLine(socket, command);
+
+			if(!running && command.length() > 0) 
+				processCommandLine(socket, command);
 		}
 	}
 	
