@@ -101,7 +101,7 @@ public:
 	// Destroy the internal semaphore object if there's initialized one.
 	~CsRtSemaphore() {
 		if(((void*)semObj) != MAP_FAILED && semValid) {
-			sem_close(semObj);
+			sem_destroy(semObj);
 			munmap((void*)semObj, sizeof(sem_t));
 		}
 	}
@@ -109,7 +109,7 @@ public:
 	// Initialize shared memory and open the semaphore.
 	int open(int init) {
 		if((semObj = (sem_t*)mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, 
-			MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED) return -1;
+			MAP_ANONYMOUS | MAP_SHARED, -1, 0)) == MAP_FAILED) return -1;
 		if(sem_init(semObj, 1, init) < 0) {
 			semValid = true;
 			return -1;
