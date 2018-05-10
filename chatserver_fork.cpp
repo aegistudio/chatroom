@@ -4,11 +4,9 @@
 #include <sys/socket.h>
 #include <sys/mman.h>
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <signal.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <semaphore.h>
 #include <stropts.h>
 
@@ -22,72 +20,9 @@
 #include <iostream>
 #include <sstream>
 
+#include "servercommon.hpp"
 #include "chatlogic.hpp"
 #include "util.hpp"
-
-// Defines the exit code when there's anything unexcepted occurs.
-enum CsExErrorCode {
-	// Argument errors.
-	eNoServerPort = 1,
-	eServerPortNotNumber,
-	eListenQueueNotNumber,
-	
-	// Runtime errors.
-	eServerSocketCreation,
-	eServerSocketBinding,
-	eServerSocketListen,
-	
-	// For those chat server based on fork.
-	ePipeCreation,
-	eSigaction,
-	eSharedMemory,
-};
-
-/// Used to print out the usage when there's no need to launch the server.
-void exitUsage(int argc, char** argv, int exitCode) {
-	std::cerr << "ChatServer - A simple chatroom server.\n";
-	std::cerr << "Usage: " << argv[0] << " <serverPort> [<listenQueue>=10]\n";
-	exit(exitCode);
-}
-
-/// Used to print out the POSIX error and exit.
-void exitPosix(const char* message, int exitCode) {
-	std::cerr << message;
-	perror("");	// Just print out the POSIX error.
-	exit(exitCode);
-}
-
-/// Used to parse the argument of the chat server program.
-void parseArguments(int argc, char** argv, int& serverPort, long& listenQueue) {
-	// Default value for listen queue.
-	listenQueue = 10;
-	
-	// Make sure the server port is specified.
-	if(argc <= 1) {
-		// Report an error if the argument could not be parsed.
-		std::cerr << "Error: the server port should be specified.\n\n";
-		exitUsage(argc, argv, eNoServerPort);
-	}
-	
-	// Parse the server port argument.
-	if(sscanf(argv[1], "%d", &serverPort) == 0) {
-		std::cerr << "Error: the server port should be an integer.\n\n";
-		exitUsage(argc, argv, eServerPortNotNumber);
-	}
-	
-	// Parse the listen queue argument.
-	if(argc >= 3 && sscanf(argv[2], "%ld", &listenQueue) == 0) {
-		std::cerr << "Error: the listen queue should be an integer.\n\n";
-		exitUsage(argc, argv, eListenQueueNotNumber);
-	}
-}
-
-// Format the ip and port as ip:port string.
-std::string ipPort(const struct sockaddr_in& address) {
-	std::stringstream result;
-	result << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port);
-	return result.str();
-}
 
 // Defines the semaphore used to synchronize different process.
 // The logic of creating shared memory and initialize semaphore is comprised.
@@ -253,7 +188,10 @@ public:
 		rtshm.pipeSemaphore.post();
 		
 		// Send signal to parent process until there's signal in respond semaphore.
-		while(!ccb.respondSemaphore.tryWait()) kill(parentPid, SIGUSR1);
+		while(!ccb.respondSemaphore.tryWait()) {
+			kill(parentPid, SIGUSR1);
+			sched_yield();
+		}
 	}
 	
 	virtual bool userOnline(const std::string& online) {
@@ -328,33 +266,9 @@ public:
 };
 
 int main(int argc, char** argv) {
-	// Parse the arguments.
-	int serverPort;
-	long listenQueue;
-	parseArguments(argc, argv, serverPort, listenQueue);
-	
-	// Attempt to create the socket, and configure the server socket so that the 
-	// port will be resuable soon after the socket is closed.
-	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-	int optValSoReuseAddr = 1;
-	if(serverSocket < 0 || (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR,
-		&optValSoReuseAddr, sizeof(optValSoReuseAddr)) < 0)) exitPosix(
-			"The server socket cannot be created!\n", eServerSocketCreation);
-	
-	// Defines the address for the server to bind onto.
+	// Create the server socket.
 	struct sockaddr_in serverAddress;
-	size_t sockAddrSize = sizeof(struct sockaddr_in);
-	memset(&serverAddress, 0, sockAddrSize);
-	serverAddress.sin_family      = AF_INET;           // IPv4
-	serverAddress.sin_addr.s_addr = htonl(INADDR_ANY); // * or 0.0.0.0
-	serverAddress.sin_port        = htons(serverPort); // serverPort
-	
-	// Attempt to bind and listen on the server port.
-	if((bind(serverSocket, (struct sockaddr*)&serverAddress, sockAddrSize)) < 0) 
-		exitPosix("The server socket cannot bind to port!\n", eServerSocketBinding);
-	
-	if((listen(serverSocket, listenQueue)) < 0) exitPosix(
-		"The server socket cannot listen on the port!\n", eServerSocketListen);
+	int serverSocket = createServerSocket(argc, argv, serverAddress);
 	
 	// Attempt to create the pipes, the pipes will be used to communicate the parent
 	// process with the child process when to broadcast client message.
@@ -398,8 +312,8 @@ int main(int argc, char** argv) {
 	pid_t parentPid = getpid();
 	while(true) {
 		struct sockaddr_in clientAddress;
-		socklen_t clientAddrLength = sockAddrSize;
-		memset(&clientAddress, 0, sockAddrSize);
+		socklen_t clientAddrLength = sizeof(clientAddress);
+		memset(&clientAddress, 0, clientAddrLength);
 		
 		// Attempt to accept a new client socket. This could be interrupted by the SIGUSR1.
 		sigprocmask(SIG_UNBLOCK, &signalSet, NULL);
@@ -419,7 +333,6 @@ int main(int argc, char** argv) {
 				else if(childPid == 0) {              // Body of child process.
 					// Close useless file descriptors and clear the map.
 					close(pipeReadEnd.fd);
-					//close(ccb.respondPipe[1]);
 					for(auto& clientHandler : clientHandlers) close(clientHandler.first);
 					clientHandlers = {};
 					
@@ -447,7 +360,6 @@ int main(int argc, char** argv) {
 				}
 				else {                                // Body of parent process.
 					ccb.pid = childPid;
-					//close(ccb.respondPipe[0]);
 					clientHandlers[clientSocket] = {};
 					clientHandlers[clientSocket].move(std::move(ccb));
 				}
@@ -462,95 +374,94 @@ int main(int argc, char** argv) {
 				std::clog << format();
 				rtshm.logMutex.post();
 			}
-		}
-		
-		// Attempt to check the status of each buffer object.
-		while(rtshm.pipeSemaphore.tryWait()) {
-			// Respond to the request.
-			int requestConnection;
-			pipeReadEnd.read(requestConnection);
-			CsRtClientControl& ccb = clientHandlers[requestConnection];
-			ccb.respondSemaphore.post();
-			
-			// Construct the respond pipe.
-			CsDtFileStream respondPipe(ccb.respondPipe[1]);
-			
-			// Parse the request.
-			int requestId = -1;
-			pipeReadEnd.read(requestId);
-			switch(requestId) {
-				// Broadcast message request.
-				case ipcBroadcast: {
-					// Retrieve the message.
-					std::string message;
-					pipeReadEnd.read(message);
-					
-					// Retrieve the ignored set.
-					std::string user;
-					std::set<std::string> ignored;
-					int mutedSize;
-					pipeReadEnd.read(mutedSize);
-					for(int i = 0; i < mutedSize; ++ i) {
-						pipeReadEnd.read(user);
-						ignored.insert(user);
-					}
+		} else {		
+			// Attempt to check the status of each buffer object.
+			while(rtshm.pipeSemaphore.tryWait()) {
+				// Respond to the request.
+				int requestConnection;
+				pipeReadEnd.read(requestConnection);
+				CsRtClientControl& ccb = clientHandlers[requestConnection];
+				ccb.respondSemaphore.post();
 				
-					// Broadcast the message.
-					for(auto& broadcastHandler : clientHandlers) {
-						if(ignored.count(broadcastHandler.second.clientName)) continue;
-						CsDtFileStream broadcastSocket(broadcastHandler.first);
-						broadcastHandler.second.socketMutex.wait();
-						broadcastSocket.write(0);
-						broadcastSocket.write(message);
-						broadcastHandler.second.socketMutex.post();
-					}
-				} break;
+				// Construct the respond pipe.
+				CsDtFileStream respondPipe(ccb.respondPipe[1]);
 				
-				// User online request.
-				case ipcJoin: {
-					// Retrieve the requested name.
-					std::string requestedName;
-					pipeReadEnd.read(requestedName);
+				// Parse the request.
+				int requestId = -1;
+				pipeReadEnd.read(requestId);
+				switch(requestId) {
+					// Broadcast message request.
+					case ipcBroadcast: {
+						// Retrieve the message.
+						std::string message;
+						pipeReadEnd.read(message);
+						
+						// Retrieve the ignored set.
+						std::string user;
+						std::set<std::string> ignored;
+						int mutedSize;
+						pipeReadEnd.read(mutedSize);
+						for(int i = 0; i < mutedSize; ++ i) {
+							pipeReadEnd.read(user);
+							ignored.insert(user);
+						}
 					
-					// Judge whether the name is available.
-					int returnResult = 0;	// SUCCESS.
-					if(nameSet.count(requestedName) > 0) 
-						returnResult = 1;	// FAILED.
-					else {
-						nameSet.insert(requestedName);
-						ccb.clientName = requestedName;
-					}
+						// Broadcast the message.
+						for(auto& broadcastHandler : clientHandlers) {
+							if(ignored.count(broadcastHandler.second.clientName)) continue;
+							CsDtFileStream broadcastSocket(broadcastHandler.first);
+							broadcastHandler.second.socketMutex.wait();
+							broadcastSocket.write(0);
+							broadcastSocket.write(message);
+							broadcastHandler.second.socketMutex.post();
+						}
+					} break;
 					
-					// Write back the result.
-					respondPipe.write(returnResult);
-				} break;
-				
-				// List online users request.
-				case ipcListOnline: {
-					// Write the number of clients on the server.
-					respondPipe.write(nameSet.size());
+					// User online request.
+					case ipcJoin: {
+						// Retrieve the requested name.
+						std::string requestedName;
+						pipeReadEnd.read(requestedName);
+						
+						// Judge whether the name is available.
+						int returnResult = 0;	// SUCCESS.
+						if(nameSet.count(requestedName) > 0) 
+							returnResult = 1;	// FAILED.
+						else {
+							nameSet.insert(requestedName);
+							ccb.clientName = requestedName;
+						}
+						
+						// Write back the result.
+						respondPipe.write(returnResult);
+					} break;
 					
-					// Write the online client list.
-					for(auto& name : nameSet) respondPipe.write(name);
-				} break;
-				
-				// User offline request.
-				case ipcLeave: {
-					// Wait for the forked process to exit.
-					int returnStatus = 0;
-					kill(ccb.pid, SIGCHLD);
-					waitpid(ccb.pid, &returnStatus, 0);
+					// List online users request.
+					case ipcListOnline: {
+						// Write the number of clients on the server.
+						respondPipe.write(nameSet.size());
+						
+						// Write the online client list.
+						for(auto& name : nameSet) respondPipe.write(name);
+					} break;
 					
-					// Erase the client name and client control block.
-					if(nameSet.count(ccb.clientName) > 0)
-						nameSet.erase(ccb.clientName);
-					clientHandlers.erase(requestConnection);
+					// User offline request.
+					case ipcLeave: {
+						// Wait for the forked process to exit.
+						int returnStatus = 0;
+						waitpid(ccb.pid, &returnStatus, 0);
+						
+						// Erase the client name and client control block.
+						if(nameSet.count(ccb.clientName) > 0)
+							nameSet.erase(ccb.clientName);
+						clientHandlers.erase(requestConnection);
+						
+						// Close the client connection on server side.
+						close(requestConnection);
+					} break;
 					
-					// Close the client connection on server side.
-					close(requestConnection);
-				} break;
-				
-				default: break;
+					default: break;
+				}
 			}
 		}
 	}
