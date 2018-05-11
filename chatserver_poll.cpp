@@ -245,6 +245,8 @@ int main(int argc, char** argv) {
 				if(clientService.receive() < 0) {
 					delete clientService.handler;
 					close(clientService.clientSocket);
+					if(clientService.clientName != "") 
+						clientNameSet.erase(clientService.clientName);
 					clientServices.erase(polls[i].fd);
 				}
 			}
