@@ -86,6 +86,9 @@ public:
 	// Retrieve the content size of the buffer.
 	size_t size() const { return buffer.size(); }
 	
+	// Retrieve the content data of the buffer.
+	const char* data() const { return buffer.data(); }
+	
 	// Write the data in the buffer to another input stream.
 	inline int writeTo(CsDtOutputStream& outputStream) const {
 		return outputStream.write0(buffer.data(), size());

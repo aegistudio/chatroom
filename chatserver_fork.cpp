@@ -82,7 +82,7 @@ public:
 
 // Defines the client control block. Which records essential data for identifying 
 // client status on server side.
-struct CsRtClientControl {
+struct CsRtForkClientControl {
 	// Fields just for recording purpose.
 	pid_t pid;						// The pid of the client process.
 	std::string clientName;			// The name of the client process.
@@ -93,12 +93,12 @@ struct CsRtClientControl {
 	CsRtSemaphore respondSemaphore;
 	
 	// Initialize the client control block.
-	CsRtClientControl() {
+	CsRtForkClientControl() {
 		respondPipe[0] = respondPipe[1] = -1;
 	}
 	
 	// Destroy the client control block.
-	~CsRtClientControl() {
+	~CsRtForkClientControl() {
 		if(respondPipe[0] > 0) close(respondPipe[0]);
 		if(respondPipe[1] > 0) close(respondPipe[1]);
 	}
@@ -117,7 +117,7 @@ struct CsRtClientControl {
 	}
 	
 	// Move the control block from the right value expression.
-	void move(CsRtClientControl&& rhs) {
+	void move(CsRtForkClientControl&& rhs) {
 		pid = rhs.pid;
 
 		// Move the respond pipe.
@@ -153,16 +153,18 @@ class CsRtForkClientService : public CsDtClientService {
 	CsDtFileStream clientSocket, pipe;
 	CsDtFileStream respondPipe;
 	
-	CsRtClientControl& ccb;
+	CsRtForkClientControl& ccb;
 	CsRtSharedMemory& rtshm;
-	const struct sockaddr_in& clientAddress;
+	struct sockaddr_in clientAddress;
 public:
 	CsRtForkClientService(pid_t ppid, int clientSocket, 
-		int pipe, CsRtClientControl& ccb, CsRtSharedMemory& rtshm, 
-		const struct sockaddr_in& clientAddress):
+		int pipe, CsRtForkClientControl& ccb, CsRtSharedMemory& rtshm, 
+		const struct sockaddr_in& _clientAddress):
 		parentPid(ppid), clientSocket(clientSocket), ccb(ccb), 
-		pipe(pipe), respondPipe(ccb.respondPipe[0]),
-		rtshm(rtshm), clientAddress(clientAddress) {}
+		pipe(pipe), respondPipe(ccb.respondPipe[0]), rtshm(rtshm) {
+			
+			memcpy(&clientAddress, &_clientAddress, sizeof(clientAddress));
+		}
 
 	virtual std::string ipPort() {
 		return ::ipPort(clientAddress);
@@ -307,7 +309,7 @@ int main(int argc, char** argv) {
 	
 	// The main loop of the chat server to receive client sockets, create child process
 	// for them and check for message to write.
-	std::map<int, CsRtClientControl> clientHandlers;
+	std::map<int, CsRtForkClientControl> clientHandlers;
 	std::set<std::string> nameSet;
 	pid_t parentPid = getpid();
 	while(true) {
@@ -323,7 +325,7 @@ int main(int argc, char** argv) {
 		// Reaction to the newly come client socket.
 		if(clientSocket >= 0) {
 			// Attempt to allocate control resource for the client.
-			CsRtClientControl ccb;
+			CsRtForkClientControl ccb;
 			
 			// Make sure the control resource could be allocated.
 			if(ccb.init() >= 0) {
@@ -380,7 +382,7 @@ int main(int argc, char** argv) {
 				// Respond to the request.
 				int requestConnection;
 				pipeReadEnd.read(requestConnection);
-				CsRtClientControl& ccb = clientHandlers[requestConnection];
+				CsRtForkClientControl& ccb = clientHandlers[requestConnection];
 				ccb.respondSemaphore.post();
 				
 				// Construct the respond pipe.
