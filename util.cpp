@@ -59,12 +59,35 @@ int CsDtInputStream::read(std::string& result, size_t maxLength) {
 
 // Implementation for reading the file stream.
 int CsDtFileStream::read0(void* buffer, size_t size) {
-	return ::read(fd, buffer, size) <= 0? -1 : 0;
+	size_t numRead = 0;
+	while(numRead < size) {
+		char* readBuffer = &(((char*)buffer)[numRead]);
+		ssize_t readStatus = ::read(fd, readBuffer, size - numRead);
+		if(readStatus == 0) return -1;	// End of file.
+		else if(readStatus < 0) {
+			if(errno != EWOULDBLOCK) return -1;	// I/O error.
+			else sched_yield();			// Don't read too quickly.
+		}
+		else numRead += readStatus;
+	}
+	return 0;
 }
 
 // Implementation for writing the file stream.
 int CsDtFileStream::write0(const void* buffer, size_t size) {
-	return ::write(fd, buffer, size) <= 0? -1 : 0;
+	size_t numWritten = 0;
+	while(numWritten  < size) {
+		const char* writeBuffer = &(((const char*)buffer)[numWritten]);
+		ssize_t writeStatus = ::write(fd, writeBuffer, size - numWritten);
+		
+		if(writeStatus == 0) return -1;	// File closed.
+		else if(writeStatus < 0) {
+			if(errno != EWOULDBLOCK) return -1;	// I/O error.
+			else sched_yield();			// Don't write too quickly.
+		}
+		else numWritten += writeStatus;
+	}
+	return 0;
 }
 
 // Implementaion for flushing the file stream.

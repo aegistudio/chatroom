@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
 			// Accept in the client.
 			int clientSocket = accept(serverSocket, 
 				(struct sockaddr*)&clientAddress, &clientAddrLength);
-					
+
 			// Initialize client socket as non-blocking.
 			bool isValidClientSocket = false;
 			if(clientSocket >= 0) {
