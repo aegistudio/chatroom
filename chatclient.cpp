@@ -17,7 +17,7 @@
 
 #include "util.hpp"
 
-enum CsExErrorCode {
+enum CsExClientErrorCode {
 	// Argument errors.
 	eNoServerAddr = 1,
 	eNoServerPort,

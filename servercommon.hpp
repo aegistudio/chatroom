@@ -7,7 +7,7 @@
 #include <string>
 
 // Defines the exit code when there's anything unexcepted occurs.
-enum CsExErrorCode {
+enum CsExServerErrorCode {
 	// Argument errors.
 	eNoServerPort = 1,
 	eServerPortNotNumber,
