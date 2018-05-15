@@ -21,7 +21,6 @@
 #include <arpa/inet.h>
 
 // The unix headers.
-#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>

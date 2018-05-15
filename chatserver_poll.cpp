@@ -19,18 +19,11 @@
 
 // The system headers.
 #include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/file.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
 
 // The unix headers.
 #include <signal.h>
 #include <poll.h>
 #include <fcntl.h>
-#include <sched.h>
-#include <semaphore.h>
-#include <stropts.h>
 
 // The C standard headers.
 #include <cstdio>

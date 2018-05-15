@@ -30,7 +30,6 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <semaphore.h>
-#include <stropts.h>
 
 // The C standard headers.
 #include <cstdio>
