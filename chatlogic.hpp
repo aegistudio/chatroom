@@ -74,5 +74,6 @@ public:
 	/// Tells the user that the current has finished filling.
 	virtual void bufferFilled() = 0;
 	
+	// Instantiate the implemented client handler.
 	static CsDtClientHandler* newClientHandler(CsDtClientService*);
 };

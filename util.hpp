@@ -157,3 +157,13 @@ enum CsDtConsoleFormat {
 
 // Retrieve a format string by provided formats.
 std::string format(const std::vector<CsDtConsoleFormat>& fmts = {});
+
+// Retrieve the void* offseted address.
+inline void* offset(void* ptr, int offset) {
+	return &(((char*)ptr)[offset]);
+}
+
+// Retrieve the const void* offseted address.
+inline const void* offset(const void* ptr, int offset) {
+	return &(((const char*)ptr)[offset]);
+}

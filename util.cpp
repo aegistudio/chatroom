@@ -78,8 +78,7 @@ int CsDtInputStream::read(std::string& result, size_t maxLength) {
 int CsDtFileStream::read0(void* buffer, size_t size) {
 	size_t numRead = 0;
 	while(numRead < size) {
-		char* readBuffer = &(((char*)buffer)[numRead]);
-		ssize_t readStatus = ::read(fd, readBuffer, size - numRead);
+		ssize_t readStatus = ::read(fd, offset(buffer, numRead), size - numRead);
 		if(readStatus == 0) return -1;	// End of file.
 		else if(readStatus < 0) {
 			if(errno != EWOULDBLOCK) return -1;	// I/O error.
@@ -94,8 +93,7 @@ int CsDtFileStream::read0(void* buffer, size_t size) {
 int CsDtFileStream::write0(const void* buffer, size_t size) {
 	size_t numWritten = 0;
 	while(numWritten  < size) {
-		const char* writeBuffer = &(((const char*)buffer)[numWritten]);
-		ssize_t writeStatus = ::write(fd, writeBuffer, size - numWritten);
+		ssize_t writeStatus = ::write(fd, offset(buffer, numWritten), size - numWritten);
 		
 		if(writeStatus == 0) return -1;	// File closed.
 		else if(writeStatus < 0) {
@@ -120,7 +118,7 @@ int CsDtReadBuffer::read0(void* paramBuffer, size_t paramSize) {
 	
 	// Update the data.
 	size -= paramSize;
-	buffer = &((char*)buffer)[paramSize];
+	buffer = offset(buffer, paramSize);
 	
 	return 0;
 }
@@ -129,7 +127,7 @@ int CsDtReadBuffer::read0(void* paramBuffer, size_t paramSize) {
 int CsDtWriteBuffer::write0(const void* paramBuffer, size_t paramSize) {
 	int bufferSize = buffer.size();
 	buffer.resize(bufferSize + paramSize);
-	memcpy(&(buffer[bufferSize]), paramBuffer, paramSize);
+	memcpy(&buffer[bufferSize], paramBuffer, paramSize);
 	return 0;
 }
 

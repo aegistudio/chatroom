@@ -128,7 +128,7 @@ struct CsRtPollClientService : public CsDtClientService {
 		
 		// Attempt to read from the client socket.
 		ssize_t readSize = read(clientSocket, 
-			&((char*)buffer)[readPointer], size - readPointer);
+			offset(buffer, readPointer), size - readPointer);
 		
 		// Check the code while invoking read.
 		if(readSize < 0) {
@@ -165,7 +165,7 @@ struct CsRtPollClientService : public CsDtClientService {
 			// Send the current data.
 			while(writePointer < outputSizes[0]) {
 				ssize_t newlySent = write(clientSocket, 
-					&((const char*)outputBuffers[0])[writePointer], 
+					offset(outputBuffers[0], writePointer), 
 					outputSizes[0] - writePointer);
 
 				// Handle the newly sent size.
@@ -212,7 +212,7 @@ struct CsRtPollClientService : public CsDtClientService {
 			size_t dataSent = 0;
 			while(dataSent < size) {
 				ssize_t newlySent = write(clientSocket, 
-					&((const char*)buffer)[dataSent], size - dataSent);
+					offset(buffer, dataSent), size - dataSent);
 				
 				// Handle the newly sent size.
 				if(newlySent < 0) {
@@ -225,8 +225,8 @@ struct CsRtPollClientService : public CsDtClientService {
 
 			// We cannot send the data, so we should clone.
 			if(dataSent < size) {
-				char* cloned = new char[size];
-				memcpy(cloned, buffer, size);
+				char* cloned = new char[size - dataSent];
+				memcpy(cloned, offset(buffer, dataSent), size - dataSent);
 				outputBuffers.push_back(cloned);
 				outputSizes.push_back(size);
 				writePointer = dataSent;
