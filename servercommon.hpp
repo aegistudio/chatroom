@@ -1,12 +1,20 @@
+#pragma once
+
+/**
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ *
+ * SERVERCOMMON.HPP - Defines shared classes or routines for different servers.
+ */
+
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string>
 
-// Defines the exit code when there's anything unexcepted occurs.
+// Defines the exit code when there's anything unexcepted occurs on server side.
 enum CsExServerErrorCode {
 	// Argument errors.
 	eNoServerPort = 1,

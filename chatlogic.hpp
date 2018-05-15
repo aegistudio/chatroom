@@ -1,6 +1,8 @@
+#pragma once
+
 /**
  * 2018 @ Nanjing University Software Institute
- * Haoran Luo
+ * @author Haoran Luo
  *
  * CHAT.HPP - Defines logic classes related to the chat room.
  */

@@ -1,25 +1,50 @@
+/**
+ * @file chatserver_fork.cpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief Implementation of the fork() server.
+ *
+ * A fork() server responds to the newly come client connections in the main thread, and create 
+ * sub-processes to serve distint client connections.
+ *
+ * Inter-process Communication (IPC) is required as different process has segregated address space.
+ * The communication (formats and techniques) will be defined in this source file. The semaphore 
+ * (including creation of shared memory and semaphore struct) will also be defined in this file as 
+ * other server model does not require IPC synchronization.
+ *
+ * When a client has joined, left or request inter-client services, the client will send UNIX 
+ * signals (SIGUSR1) to interrupt the blocking of parent process. Requested service will be written
+ * to a bus (pipe) so that the service order would be guaranteed.
+ */
+
+// The system headers.
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 
+// The unix headers.
 #include <signal.h>
 #include <fcntl.h>
 #include <sched.h>
 #include <semaphore.h>
 #include <stropts.h>
 
+// The C standard headers.
 #include <cstdio>
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
 
+// The C++ STL headers.
 #include <set>
 #include <map>
 #include <iostream>
 #include <sstream>
 
+// The user defined headers.
 #include "servercommon.hpp"
 #include "chatlogic.hpp"
 #include "util.hpp"
@@ -267,6 +292,7 @@ public:
 	}
 };
 
+// The main function of the fork() server.
 int main(int argc, char** argv) {
 	// Create the server socket.
 	struct sockaddr_in serverAddress;

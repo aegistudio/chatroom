@@ -1,9 +1,29 @@
+/**
+ * @file chatserver_poll.cpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief Implementation of the poll() server.
+ *
+ * A poll() server responds to the newly come client connections and messages from different
+ * clients, and respond to them just in the main loop, so is called single thread.
+ *
+ * The clients are non-blocking. If a single invocation to write() could not send all data to 
+ * the client, the remaining data will be buffered (in a structure of client control block), 
+ * and the POLLOUT event will be monitored.
+ *
+ * The main loop will continue attempting to send remaining data and remove the registered 
+ * monitoring of POLLOUT if all data is sent.
+ */
+
+// The system headers.
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 
+// The unix headers.
 #include <signal.h>
 #include <poll.h>
 #include <fcntl.h>
@@ -11,16 +31,19 @@
 #include <semaphore.h>
 #include <stropts.h>
 
+// The C standard headers.
 #include <cstdio>
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
 
+// The C++ STL headers.
 #include <set>
 #include <map>
 #include <iostream>
 #include <sstream>
 
+// The user defined headers.
 #include "servercommon.hpp"
 #include "chatlogic.hpp"
 #include "util.hpp"
@@ -246,6 +269,7 @@ struct CsRtPollClientService : public CsDtClientService {
 	}
 };
 
+// The main function of the poll() server.
 int main(int argc, char** argv) {
 	// Create the server socket.
 	struct sockaddr_in serverAddress;

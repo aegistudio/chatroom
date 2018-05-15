@@ -17,6 +17,7 @@
 
 #include "util.hpp"
 
+// Defines the exit code when there's anything unexcepted occurs on client side.
 enum CsExClientErrorCode {
 	// Argument errors.
 	eNoServerAddr = 1,
@@ -31,14 +32,14 @@ enum CsExClientErrorCode {
 	eClientSocketConnect,
 };
 
-/// Used to print out the usage when there's no need to launch the server.
+// Used to print out the usage when there's no need to launch the server.
 void exitUsage(int argc, char** argv, int exitCode) {
 	std::cerr << "ChatClient - A simple chatroom client.\n";
 	std::cerr << "Usage: " << argv[0] << " <serverAddress> <serverPort> <clientName>\n";
 	exit(exitCode);
 }
 
-/// Used to print out the POSIX error and exit.
+// Used to print out the POSIX error and exit.
 void exitPosix(const char* message, int exitCode) {
 	std::cerr << message;
 	perror("");	// Just print out the POSIX error.
@@ -72,7 +73,7 @@ bool processCommandLine(CsDtFileStream& socket, std::string command) {
 	return true;
 }
 
-/// Used to parse the argument of the chat server program.
+// Used to parse the argument of the chat server program.
 const char* errorArgument[] = { "server ip", "server port", "client name" };
 const int errorExitCode[] = { eNoServerAddr, eNoServerPort, eNoClientName };
 void parseArguments(int argc, char** argv, int& serverIp, 
@@ -106,9 +107,10 @@ void parseArguments(int argc, char** argv, int& serverIp,
 	}
 }
 
-/// Used in the sigaction function.
+// Used in the sigaction function.
 void emptySaHandler(int sig) {}
 
+// The main function of the client.
 int main(int argc, char** argv) {
 	// Parse the arguments.
 	int serverIp, serverPort, clientNameLength; char* clientName;
