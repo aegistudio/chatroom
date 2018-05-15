@@ -43,6 +43,7 @@
 #include <map>
 #include <iostream>
 #include <sstream>
+#include <queue>
 
 // The user defined headers.
 #include "servercommon.hpp"
@@ -73,8 +74,8 @@ struct CsRtPollClientService : public CsDtClientService {
 	std::vector<struct pollfd>* pollStructs;
 	
 	/// The sending buffers.
-	std::vector<char*> outputBuffers;
-	std::vector<size_t> outputSizes;
+	std::queue<char*> outputBuffers;
+	std::queue<size_t> outputSizes;
 	size_t writePointer;
 
 	// Initialize the control block as empty.
@@ -110,9 +111,7 @@ struct CsRtPollClientService : public CsDtClientService {
 		
 		// Move the buffers.
 		outputBuffers = rhs.outputBuffers;
-		rhs.outputBuffers.clear();
 		outputSizes = rhs.outputSizes;
-		rhs.outputSizes.clear();
 
 		// Move the socket address.
 		memcpy(&clientAddress, &rhs.clientAddress, sizeof(sockaddr_in));
@@ -161,12 +160,12 @@ struct CsRtPollClientService : public CsDtClientService {
 		errno = 0;
 
 		// Loop sending data.
-		while(outputBuffers.size() > 0) {
+		while(!outputBuffers.empty()) {
 			// Send the current data.
-			while(writePointer < outputSizes[0]) {
+			while(writePointer < outputSizes.front()) {
 				ssize_t newlySent = write(clientSocket, 
-					offset(outputBuffers[0], writePointer), 
-					outputSizes[0] - writePointer);
+					offset(outputBuffers.front(), writePointer), 
+					outputSizes.front() - writePointer);
 
 				// Handle the newly sent size.
 				if(newlySent < 0) {
@@ -178,17 +177,17 @@ struct CsRtPollClientService : public CsDtClientService {
 			}
 
 			// See whether the transfer has finished.
-			if(writePointer < outputSizes[0]) break;
+			if(writePointer < outputSizes.front()) break;
 			else {
-				delete[] outputBuffers[0];
-				outputBuffers.erase(outputBuffers.begin());
-				outputSizes.erase(outputSizes.begin());
+				delete[] outputBuffers.front();
+				outputBuffers.pop();
+				outputSizes.pop();
 				writePointer = 0;
 			}
 		}
 
 		// Remove poll flag if ends writing.
-		if(outputBuffers.size() == 0) {
+		if(outputBuffers.empty()) {
 			(*pollStructs)[pollIndex].events |= POLLOUT;
 			(*pollStructs)[pollIndex].events ^= POLLOUT;
 		}
@@ -204,8 +203,8 @@ struct CsRtPollClientService : public CsDtClientService {
 			// Directly clone and push the buffer.
 			char* cloned = new char[size];
 			memcpy(cloned, buffer, size);
-			outputBuffers.push_back(cloned);
-			outputSizes.push_back(size);
+			outputBuffers.push(cloned);
+			outputSizes.push(size);
 		}
 		else {
 			// We should attempt to send some data first.
@@ -227,8 +226,8 @@ struct CsRtPollClientService : public CsDtClientService {
 			if(dataSent < size) {
 				char* cloned = new char[size - dataSent];
 				memcpy(cloned, offset(buffer, dataSent), size - dataSent);
-				outputBuffers.push_back(cloned);
-				outputSizes.push_back(size);
+				outputBuffers.push(cloned);
+				outputSizes.push(size);
 				writePointer = dataSent;
 				(*pollStructs)[pollIndex].events |= POLLOUT;
 			}
@@ -382,8 +381,10 @@ int main(int argc, char** argv) {
 					// Remove the service entry.
 					delete clientService.handler;
 					close(clientService.clientSocket);
-					for(auto& outputBuffer : clientService.outputBuffers) 
-						delete[] outputBuffer;
+					while(!clientService.outputBuffers.empty()) {
+						delete[] clientService.outputBuffers.front();
+						clientService.outputBuffers.pop();
+					}
 					if(clientService.clientName != "") 
 						clientNameSet.erase(clientService.clientName);
 					clientServices.erase(polls[i].fd);
