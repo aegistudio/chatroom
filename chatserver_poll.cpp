@@ -31,7 +31,7 @@ struct CsRtPollClientService : public CsDtClientService {
 	int clientSocket;
 	
 	// The poll structure.
-	struct pollfd* pollStruct;
+	unsigned pollIndex;
 
 	/// The handler for the client socket. Will be null at first.
 	CsDtClientHandler* handler;
@@ -46,6 +46,7 @@ struct CsRtPollClientService : public CsDtClientService {
 	std::string clientName;
 	std::map<int, CsRtPollClientService>* clientServices;
 	std::set<std::string>* clientNameSet;
+	std::vector<struct pollfd>* pollStructs;
 	
 	/// The sending buffers.
 	std::vector<char*> outputBuffers;
@@ -53,15 +54,15 @@ struct CsRtPollClientService : public CsDtClientService {
 	size_t writePointer;
 
 	// Initialize the control block as empty.
-	CsRtPollClientService(): clientNameSet(nullptr), clientServices(nullptr),
-		readPointer(0), writePointer(0),  clientSocket(-1), pollStruct(nullptr) {}
+	CsRtPollClientService(): clientNameSet(nullptr), clientServices(nullptr), pollStructs(nullptr),
+		readPointer(0), writePointer(0),  clientSocket(-1), pollIndex(0) {}
 	
 	// Initialize the control block.
 	CsRtPollClientService(std::map<int, CsRtPollClientService>* clientServices,
-		std::set<std::string>* clientNameSet, const struct sockaddr_in& _clientAddress, 
-		int clientSocket, struct pollfd* pollStruct): 
-		clientNameSet(clientNameSet), clientServices(clientServices), 
-		readPointer(0), writePointer(0), clientSocket(clientSocket), pollStruct(pollStruct) {
+		std::set<std::string>* clientNameSet, std::vector<struct pollfd>* pollStructs, 
+		const struct sockaddr_in& _clientAddress, int clientSocket, int pollIndex): 
+		clientNameSet(clientNameSet), clientServices(clientServices), readPointer(0), writePointer(0), 
+		clientSocket(clientSocket), pollStructs(pollStructs), pollIndex(pollIndex) {
 			memcpy(&clientAddress, &_clientAddress, sizeof(sockaddr_in));
 		}
 	
@@ -78,8 +79,10 @@ struct CsRtPollClientService : public CsDtClientService {
 		rhs.readPointer = 0;
 		writePointer = rhs.writePointer;
 		rhs.writePointer = 0;
-		pollStruct = rhs.pollStruct;
-		rhs.pollStruct = nullptr;
+		pollStructs = rhs.pollStructs;
+		rhs.pollStructs = nullptr;
+		pollIndex = rhs.pollIndex;
+		rhs.pollIndex = 0;
 		
 		// Move the buffers.
 		outputBuffers = rhs.outputBuffers;
@@ -162,8 +165,8 @@ struct CsRtPollClientService : public CsDtClientService {
 
 		// Remove poll flag if ends writing.
 		if(outputBuffers.size() == 0) {
-			pollStruct -> events |= POLLOUT;
-			pollStruct -> events ^= POLLOUT;
+			(*pollStructs)[pollIndex].events |= POLLOUT;
+			(*pollStructs)[pollIndex].events ^= POLLOUT;
 		}
 
 		return 0;
@@ -203,7 +206,7 @@ struct CsRtPollClientService : public CsDtClientService {
 				outputBuffers.push_back(cloned);
 				outputSizes.push_back(size);
 				writePointer = dataSent;
-				pollStruct -> events |= POLLOUT;
+				(*pollStructs)[pollIndex].events |= POLLOUT;
 			}
 		}
 	}
@@ -266,7 +269,7 @@ int main(int argc, char** argv) {
 	std::map<int, CsRtPollClientService> clientServices;
 	std::vector<struct pollfd> polls(1);
 
-	// The first entry should be the server's accept entry.
+	// The first entry should be the server's passive socket entry.
 	polls[0].fd = serverSocket;
 	polls[0].events = POLLIN;
 
@@ -299,15 +302,17 @@ int main(int argc, char** argv) {
 				}
 			}
 			
-			// Add the client control block only if the client is valid.
+			// Only valid client socket will be served later.
 			if(isValidClientSocket) {
+				// Create new pollfd in the poll list.
 				int socketSize = polls.size();
 				polls.resize(socketSize + 1);
 				polls[socketSize].fd = clientSocket;
 				polls[socketSize].events = POLLIN;
 
-				CsRtPollClientService movedClientService(&clientServices, 
-					&clientNameSet, clientAddress, clientSocket, &polls[socketSize]);
+				// Add the client control block.
+				CsRtPollClientService movedClientService(&clientServices, &clientNameSet, 
+					&polls, clientAddress, clientSocket, socketSize);
 				clientServices[clientSocket] = {};
 				clientServices[clientSocket].move(std::move(movedClientService));
 				CsRtPollClientService& clientService = clientServices[clientSocket];
@@ -317,7 +322,8 @@ int main(int argc, char** argv) {
 			else if(clientSocket >= 0) close(clientSocket);
 		}
 		
-		// Respond to the read requests.
+		// When a client socket is readable or writable.
+		// Notice that we are scheduling client sockets equally.
 		std::set<int> killedService;
 		for(int i = 1; i < polls.size(); ++ i) {
 			if(numAvailables <= 0) break;	// Nore more to service.
@@ -344,7 +350,6 @@ int main(int argc, char** argv) {
 
 		// Remove killed requests and update poll struct reference.
 		if(killedService.size() > 0) {
-			bool hasItemRemoved = false;
 			for(int i = 1; i < polls.size();) {
 				if(killedService.count(polls[i].fd)) {
 					CsRtPollClientService& clientService = clientServices[polls[i].fd];
@@ -359,16 +364,14 @@ int main(int argc, char** argv) {
 					clientServices.erase(polls[i].fd);
 
 					// Remove the poll entry.
-					polls.erase(polls.begin() + i);
-					hasItemRemoved = true;
-				}
-				else {
-					if(hasItemRemoved) {
-						// Update index if the item has removed.
-						clientServices[polls[i].fd].pollStruct = &polls[i];
+					if(i < polls.size() - 1) {
+						polls[i].fd     = polls[polls.size() - 1].fd;
+						polls[i].events = polls[polls.size() - 1].events;
+						clientServices[polls[i].fd].pollIndex = i;
 					}
-					++ i;
+					polls.resize(polls.size() - 1);
 				}
+				else ++ i;
 			}
 		}
 	}
