@@ -312,14 +312,7 @@ int main(int argc, char** argv) {
 	
 	// Install the signal handler for SIGUSR1 and SIGPIPE, because the child process may 
 	// send SIGUSR1 to request termination or data writing on the pipe.
-	struct sigaction sa;
-	sa.sa_handler = [] (int) -> void {};
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	if(sigaction(SIGUSR1, &sa, NULL) < 0) exitPosix(
-		"Cannot register sigaction handler.\n", eSigaction);
-	if(sigaction(SIGPIPE, &sa, NULL) < 0) exitPosix(
-		"Cannot register sigaction handler.\n", eSigaction);
+	registerEmptyHandler({SIGUSR1, SIGPIPE});
 		
 	// Create the signal set containing SIGUSR1 for blocking and unblocking, as we 
 	// need to interrupt the accept function but don't want to interrupt other I/O
@@ -335,7 +328,7 @@ int main(int argc, char** argv) {
 	if(rtshm.pipeSemaphore.open(0) < 0) exitPosix("Cannot create pipe semaphore", efSharedMemory);
 
 	// Now the server is ready, so print out the ready message to server log.
-	std::clog << format({cfFgCyan}) << "Chat room server is ready at " << format({cfBright}) << 
+	std::clog << format({cfFgCyan}) << "Chat room fork() server is ready at " << format({cfBright}) << 
 		ipPort(serverAddress) << format() << format({cfFgCyan}) << "." << format() << std::endl;
 	
 	// The main loop of the chat server to receive client sockets, create child process

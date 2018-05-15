@@ -19,4 +19,4 @@ bin/chatserver_poll: chatserver_poll.cpp defaultlogic.cpp servercommon.cpp util.
 
 # The chat client used to connect to the fork() or poll() server.
 bin/chatclient: chatclient.cpp util.cpp
-	g++ -std=c++11 -O3 $^ -o $@
+	g++ -g -std=c++11 -O3 $^ -o $@

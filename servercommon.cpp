@@ -94,3 +94,15 @@ int createServerSocket(int argc, char** argv, struct sockaddr_in& serverAddress)
 		
 	return serverSocket;
 }
+
+// Implementation for shielding specified signals.
+void registerEmptyHandler(const std::vector<int>& signals) {
+	struct sigaction sa;
+	sa.sa_handler = [] (int) -> void {};
+	sigemptyset(&sa.sa_mask);
+	for(auto signal : signals) sigaddset(&sa.sa_mask, signal);
+	sa.sa_flags = 0;
+	
+	for(auto signal : signals) if(sigaction(signal, &sa, NULL) < 0) exitPosix(
+		"Cannot register sigaction handler.\n", eSigaction);
+}

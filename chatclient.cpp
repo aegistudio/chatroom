@@ -155,7 +155,8 @@ int main(int argc, char** argv) {
 		exitPosix("Cannot connect to specified server address!\n", eClientSocketConnect);
 	
 	// Make the input stream non-blocking, and hold the command buffer.
-	fcntl(fileno(stdin), F_SETFL, O_NONBLOCK);
+	int stdinflg = fcntl(fileno(stdin), F_GETFL, 0);
+	fcntl(fileno(stdin), F_SETFL, stdinflg | O_NONBLOCK);
 	std::string command;
 
 	// Construct the file stream to simplify the writing.
@@ -201,6 +202,9 @@ int main(int argc, char** argv) {
 			}
 		}
 		
+		// Other error condition in client socket.
+		if(clientSocketPoll.revents & (POLLERR | POLLNVAL)) running = false;
+		
 		// Check whether stdin is ready.
 		if(stdinPoll.revents & POLLIN) {
 			stdinPoll.revents ^= POLLIN;
@@ -236,6 +240,9 @@ int main(int argc, char** argv) {
 			if(!running && command.length() > 0) 
 				processCommandLine(socket, command);
 		}
+		
+		// Other error condition in stdin.
+		if(stdinPoll.revents & (POLLHUP | POLLNVAL | POLLERR)) running = false;
 	}
 	
 	// Clean up the resource.

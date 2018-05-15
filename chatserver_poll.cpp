@@ -269,15 +269,10 @@ int main(int argc, char** argv) {
 	int serverSocket = createServerSocket(argc, argv, serverAddress);
 	
 	// Just shield the SIGPIPE signal for our program.
-	struct sigaction sa;
-	sa.sa_handler = [] (int) -> void {};
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	if(sigaction(SIGPIPE, &sa, NULL) < 0) exitPosix(
-		"Cannot register sigaction handler.\n", eSigaction);
+	registerEmptyHandler({SIGPIPE});
 
 	// Now the server is ready, so print out the ready message to server log.
-	std::clog << format({cfFgCyan}) << "Chat room server is ready at " << format({cfBright}) << 
+	std::clog << format({cfFgCyan}) << "Chat room poll() server is ready at " << format({cfBright}) << 
 		ipPort(serverAddress) << format() << format({cfFgCyan}) << "." << format() << std::endl;
 	
 	// The main loop of the chat server to receive client sockets, create child process
@@ -349,12 +344,12 @@ int main(int argc, char** argv) {
 			-- numAvailables;
 			CsRtPollClientService& clientService = clientServices[polls[i].fd];
 
-			if((polls[i].revents & POLLIN) > 0) {
+			if(polls[i].revents & POLLIN) {
 				// Destroy the client socket if it is not available.
 				if(clientService.receive() < 0) killedService.insert(polls[i].fd);
 			}
 
-			if((polls[i].revents & POLLOUT) > 0) {
+			if(polls[i].revents & POLLOUT) {
 				// Destroy the client socket if it is not available.
 				// We are scheduling all clients so that they will be served equally. And if we just 
 				// kill the service, we are likely to lose data already in the tranferred buffer.
@@ -363,6 +358,9 @@ int main(int argc, char** argv) {
 					polls[i].events ^= POLLOUT;
 				}
 			}
+			
+			if(polls[i].revents & (POLLERR | POLLHUP | POLLNVAL)) 
+				killedService.insert(polls[i].fd);
 		}
 
 		// Remove killed requests and update poll struct reference.

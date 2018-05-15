@@ -21,9 +21,11 @@
 
 // The unix headers.
 #include <unistd.h>
+#include <signal.h>
 
 // The STL headers.
 #include <string>
+#include <vector>
 
 // Defines the exit code when there's anything unexcepted occurs on server side.
 enum CsExServerErrorCode {
@@ -56,3 +58,6 @@ std::string ipPort(const struct sockaddr_in& address);
 
 /// Create a server socket with given arguments.
 int createServerSocket(int argc, char** argv, struct sockaddr_in& serverAddress);
+
+/// Used to register an empty handler for specified signals.
+void registerEmptyHandler(const std::vector<int>& signals);
