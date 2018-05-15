@@ -1,11 +1,27 @@
+/**
+ * @file defaultlogic.cpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief The default implementation of the client handler logic..
+ *
+ * The default implementation of the client handler. It can be easily extended.
+ */
+
+// The user defined headers.
 #include "chatlogic.hpp"
 #include "util.hpp"
+
+// The C++ STL headers.
 #include <vector>
 #include <map>
 #include <sstream>
+
+// The network headers.
 #include <arpa/inet.h>
 
-enum CsDtClientStatus {
+// The state machine's states that are possible.
+enum CsDtClientState {
 	stTerminated = 0,
 	
 	// Client bootstrap.
@@ -24,6 +40,7 @@ static std::string fmtYellow    = format() + format({cfFgYellow, cfBright});
 static std::string fmtMagenta   = format() + format({cfBright, cfFgMagenta});
 static std::string fmtPurple    = format() + format({cfFgMagenta});
 
+// The default implementation of the client handler.
 class CsDtDefaultHandler : public CsDtClientHandler {
 	CsDtClientService* server;
 	CsDtClientStatus status;
@@ -244,6 +261,7 @@ public:
 	}
 };
 
+// The provided instantiation method.
 CsDtClientHandler* CsDtClientHandler::newClientHandler(CsDtClientService* svc) {
 	return new CsDtDefaultHandler(svc);
 }

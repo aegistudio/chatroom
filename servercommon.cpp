@@ -1,8 +1,22 @@
+/**
+ * @file servercommon.cpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief The implementation of the server common code.
+ *
+ * See the header file **servercommon.hpp** for details.
+ */
+
+// The interface header.
 #include "servercommon.hpp"
 
+// The C standard header.
+#include <cstring>
+
+// The STL headers.
 #include <iostream>
 #include <sstream>
-#include <cstring>
 
 // Implementation for the exit usage method.
 void exitUsage(int argc, char** argv, int exitCode) {

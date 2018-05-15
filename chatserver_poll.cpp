@@ -13,7 +13,8 @@
  * and the POLLOUT event will be monitored.
  *
  * The main loop will continue attempting to send remaining data and remove the registered 
- * monitoring of POLLOUT if all data is sent.
+ * monitoring of POLLOUT if all data is sent. Write error will not directly close the client
+ * connection as there may be remained data in the input buffer in our implementation.
  */
 
 // The system headers.

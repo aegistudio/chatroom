@@ -1,12 +1,25 @@
 #pragma once
 
 /**
+ * @file chat.hpp
+ *
  * 2018 @ Nanjing University Software Institute
  * @author Haoran Luo
+ * @brief Defines logic classes related to the chat room.
  *
- * CHAT.HPP - Defines logic classes related to the chat room.
+ * In order to reuse the code of serving clients, we abstract the logic class from the server code.
+ *
+ * The logic code is state-machine based, the server can know how many bytes the client service is 
+ * requesting, and where the data can be written to (CsDtClientHandler::next()), and can request for
+ * service (CsDtClientHandler::bufferFilled()) after data is pushed into the provided buffer.
+ *
+ * The logic code interacts with the server model via the service class (CsDtClientService). 
+ * Different server model should implement them regarding the underlying communication.
+ *
+ * The concrete implementation of the logic should be retrieved by calling 
+ * CsDtClientHandler::newClientHandler, where the caller should manage the dynamic allocated memory.
  */
-
+ 
 #include <string>
 #include <set>
 

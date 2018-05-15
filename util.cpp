@@ -1,13 +1,30 @@
+/**
+ * @file util.hpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief Defines the utility classes for streaming and text coloring.
+ *
+ * See the header file **util.hpp** for details.
+ */
+
+// The interface header.
 #include "util.hpp"
 
+// The network headers.
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
+
+// The unix headers.
 #include <stropts.h>
 #include <unistd.h>
-#include <cerrno>
-#include <cstring>
 #include <fcntl.h>
 
+// The C standard headers.
+#include <cerrno>
+#include <cstring>
+
+// The STL headers.
 #include <sstream>
 #include <vector>
 

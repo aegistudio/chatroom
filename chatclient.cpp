@@ -1,20 +1,42 @@
+/**
+ * @file chatclient.cpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief The chat client to connect to the chat server.
+ *
+ * The default implementation of the chat client. The client uses poll() and monitor whether there's 
+ * incoming data from the server side or the user has inputed new chat or command from command line.
+ *
+ * Either the server side sends FIN, or the user closes the standard input via Ctrl-D will terminate 
+ * the client side.
+ */
+ 
+// The system headers.
 #include <sys/types.h>
 #include <sys/socket.h>
+
+// The network headers.
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+// The unix headers.
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 
+// The C standard headers.
 #include <cstdio>
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
 
+// The C++ STL headers.
 #include <set>
-#include <poll.h>
 #include <iostream>
 
+// The user defined headers.
 #include "util.hpp"
 
 // Defines the exit code when there's anything unexcepted occurs on client side.

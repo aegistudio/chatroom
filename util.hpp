@@ -1,5 +1,22 @@
 #pragma once
 
+/**
+ * @file util.hpp
+ *
+ * 2018 @ Nanjing University Software Institute
+ * @author Haoran Luo
+ * @brief Defines the utility classes for streaming and text coloring.
+ *
+ * The utility classes are shared between servers and clients.
+ * 
+ * The streaming class abstract the input stream and output stream. So that the upper level
+ * classes could use them as stream either directly operated on file or memory buffers.
+ *
+ * The text coloring class defines the escape sequences that could change the command line color.
+ * And use interfaces instead of classes could make the code more readable.
+ */
+
+// The STL headers.
 #include <string>
 #include <vector>
 
@@ -138,4 +155,5 @@ enum CsDtConsoleFormat {
 	cfBgWhite
 };
 
+// Retrieve a format string by provided formats.
 std::string format(const std::vector<CsDtConsoleFormat>& fmts = {});

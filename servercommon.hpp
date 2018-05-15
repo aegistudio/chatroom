@@ -1,17 +1,28 @@
 #pragma once
 
 /**
+ * @file servercommon.hpp
+ *
  * 2018 @ Nanjing University Software Institute
  * @author Haoran Luo
+ * @brief The classes and routines shared between servers.
  *
- * SERVERCOMMON.HPP - Defines shared classes or routines for different servers.
+ * There could be duplicated code of processing console command line and creating a server socket.
+ * The header defines classes and routines so that different server models could reuses them easily.
  */
-
+ 
+// The system headers.
 #include <sys/types.h>
 #include <sys/socket.h>
+
+// The network headers.
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+// The unix headers.
 #include <unistd.h>
+
+// The STL headers.
 #include <string>
 
 // Defines the exit code when there's anything unexcepted occurs on server side.
