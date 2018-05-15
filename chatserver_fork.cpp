@@ -49,6 +49,12 @@
 #include "chatlogic.hpp"
 #include "util.hpp"
 
+// Defines error codes that could only be thrown by fork server.
+enum CsExForkErrorCode {
+	efPipeCreation = eMaxCommonError + 1,
+	efSharedMemory
+};
+
 // Defines the semaphore used to synchronize different process.
 // The logic of creating shared memory and initialize semaphore is comprised.
 class CsRtSemaphore {
@@ -302,7 +308,7 @@ int main(int argc, char** argv) {
 	// process with the child process when to broadcast client message.
 	int pipefd[2];
 	if(pipe2(pipefd, O_CLOEXEC) < 0) exitPosix(
-		"The pipe cannot be created!\n", ePipeCreation);
+		"The pipe cannot be created!\n", efPipeCreation);
 	CsDtFileStream pipeReadEnd = pipefd[0], pipeWriteEnd = pipefd[1];
 	
 	// Install the signal handler for SIGUSR1 and SIGPIPE, because the child process may 
@@ -325,9 +331,9 @@ int main(int argc, char** argv) {
 
 	// Create shared memory to be used among its child process.
 	CsRtSharedMemory rtshm;
-	if(rtshm.logMutex.open(1) < 0) exitPosix("Cannot create log mutex.", eSharedMemory);
-	if(rtshm.pipeMutex.open(1) < 0) exitPosix("Cannot create pipe mutex.", eSharedMemory);
-	if(rtshm.pipeSemaphore.open(0) < 0) exitPosix("Cannot create pipe semaphore", eSharedMemory);
+	if(rtshm.logMutex.open(1) < 0) exitPosix("Cannot create log mutex.", efSharedMemory);
+	if(rtshm.pipeMutex.open(1) < 0) exitPosix("Cannot create pipe mutex.", efSharedMemory);
+	if(rtshm.pipeSemaphore.open(0) < 0) exitPosix("Cannot create pipe semaphore", efSharedMemory);
 
 	// Now the server is ready, so print out the ready message to server log.
 	std::clog << format({cfFgCyan}) << "Chat room server is ready at " << format({cfBright}) << 

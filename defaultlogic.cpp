@@ -43,7 +43,7 @@ static std::string fmtPurple    = format() + format({cfFgMagenta});
 // The default implementation of the client handler.
 class CsDtDefaultHandler : public CsDtClientHandler {
 	CsDtClientService* server;
-	CsDtClientStatus status;
+	CsDtClientState state;
 
 	int dataSize;
 	int packetId;
@@ -53,7 +53,7 @@ class CsDtDefaultHandler : public CsDtClientHandler {
 	std::string clientName;
 public:
 	CsDtDefaultHandler(CsDtClientService* server): server(server), 
-		status(stNameSize), hasJoinedServer(false) {}
+		state(stNameSize), hasJoinedServer(false) {}
 
 	virtual ~CsDtDefaultHandler() {
 		if(hasJoinedServer) {
@@ -76,7 +76,7 @@ public:
 
 	// Retrieve next data to read.
 	virtual void next(size_t& size, void*& buffer) override {
-		switch(status) {
+		switch(state) {
 			// The packet size state.
 			case stPacketSize:
 			case stNameSize: 
@@ -194,12 +194,12 @@ public:
 
 	/// Tells the user that the current has finished filling.
 	virtual void bufferFilled() override {
-		switch(status) {
+		switch(state) {
 			case stNameSize:
 				// Make sure the name length is not greater than 64 bytes.
-				if(dataSize >= 64) status = stTerminated;
+				if(dataSize >= 64) state = stTerminated;
 				else {
-					status = stNameBuffer;
+					state = stNameBuffer;
 					dataBuffer.resize(dataSize + 1);
 					dataBuffer[dataSize] = 0;
 				}
@@ -207,15 +207,15 @@ public:
 			
 			case stPacketSize: {
 				// Just receive the client packet.
-				status = stPacketData;
+				state = stPacketData;
 				dataBuffer.resize(dataSize);
 			} break;
 			
 			case stPacketData: {
 				// Reaction to the packet.
 				if(processPacket((size_t)dataSize, dataBuffer.data()) < 0)
-					status = stTerminated;
-				else status = stPacketSize;
+					state = stTerminated;
+				else state = stPacketSize;
 				dataBuffer.resize(0);
 			} break;
 			
@@ -242,20 +242,20 @@ public:
 					// Attempt to broadcast the message to other users.
 					broadcastOtherAndLog(joinMessage.str());
 					
-					// Update client status.
-					status = stPacketSize;
+					// Update client state.
+					state = stPacketSize;
 				} else {
 					// Tells the user that it cannot join the server because of
 					// the duplicated name.
 					server -> send(fmtRed + "Sorry but " + fmtMagenta
 						+ clientName + fmtRed + (" is already "
 						"online, why not choose another name?"));
-					status = stTerminated;
+					state = stTerminated;
 				}
 			} break;
 			
 			default:
-				status = stTerminated;
+				state = stTerminated;
 			break;
 		}
 	}

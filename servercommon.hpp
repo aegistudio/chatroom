@@ -36,11 +36,10 @@ enum CsExServerErrorCode {
 	eServerSocketCreation,
 	eServerSocketBinding,
 	eServerSocketListen,
-	
-	// For those chat server based on fork.
-	ePipeCreation,
 	eSigaction,
-	eSharedMemory,
+	
+	// Warning: Should not return this code directly.
+	eMaxCommonError
 };
 
 /// Used to print out the usage when there's no need to launch the server.
